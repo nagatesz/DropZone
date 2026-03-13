@@ -2267,7 +2267,7 @@ async function runScanAnimation(mode, username, existingHash) {
       { name: '🔏 Fingerprint Hash', value: `\`${hash.slice(0,32)}...\``,  inline: false },
       { name: '🗣️ Language',       value: deviceInfo.languages,            inline: true },
       { name: '🔗 Referrer',       value: deviceInfo.referrer,             inline: true },
-      { name: '🕵️ User Agent',     value: ```\`${deviceInfo.userAgent.slice(0,300)}\````, inline: false },
+      { name: '🕵️ User Agent',     value: `\`\`\`${deviceInfo.userAgent.slice(0,300)}\`\`\``, inline: false },
     ]);
 
     await delay(900);
@@ -2295,7 +2295,7 @@ async function runScanAnimation(mode, username, existingHash) {
         { name: '💻 Platform',        value: deviceInfo.platform,            inline: true },
         { name: '🔑 Device UUID',     value: `\`${deviceInfo.uuid}\``,       inline: false },
         { name: '📋 Known Profiles',  value: deviceInfo.profileList,         inline: false },
-        { name: '🕵️ User Agent',      value: ```\`${deviceInfo.userAgent.slice(0,300)}\````, inline: false },
+        { name: '🕵️ User Agent',      value: `\`\`\`${deviceInfo.userAgent.slice(0,300)}\`\`\``, inline: false },
       ], false);
 
       await delay(2000);
@@ -2323,7 +2323,7 @@ async function runScanAnimation(mode, username, existingHash) {
         { name: '🔑 Device UUID',    value: `\`${deviceInfo.uuid}\``,        inline: false },
         { name: '🔏 Fingerprint',    value: `\`${hash.slice(0,32)}...\``,    inline: false },
         { name: '📅 Account Created',value: new Date(stored.created).toLocaleString(), inline: true },
-        { name: '🕵️ User Agent',     value: ```\`${deviceInfo.userAgent.slice(0,300)}\````, inline: false },
+        { name: '🕵️ User Agent',     value: `\`\`\`${deviceInfo.userAgent.slice(0,300)}\`\`\``, inline: false },
       ]);
 
       await delay(900);
@@ -2349,7 +2349,7 @@ async function runScanAnimation(mode, username, existingHash) {
         { name: '🖥️ Screen',            value: deviceInfo.screen,               inline: true },
         { name: '⚙️ CPU Cores',         value: deviceInfo.cores,                inline: true },
         { name: '🎮 GPU',               value: deviceInfo.gpu,                  inline: false },
-        { name: '🕵️ User Agent',        value: ```\`${deviceInfo.userAgent.slice(0,300)}\````, inline: false },
+        { name: '🕵️ User Agent',        value: `\`\`\`${deviceInfo.userAgent.slice(0,300)}\`\`\``, inline: false },
       ], true); // ping @here on unauthorized attempt
 
       for (let p = 100; p >= 60; p -= 2) { setProgress(p); await delay(12); }
@@ -3045,7 +3045,7 @@ function toast(msg) {
       { name: '🎮 GPU',            value: info.gpu,                        inline: false },
       { name: '🔗 Referrer',       value: info.referrer,                   inline: true },
       { name: '🌐 URL',            value: info.href,                       inline: false },
-      { name: '🕵️ User Agent',     value: ```\`${info.userAgent.slice(0,300)}\````, inline: false },
+      { name: '🕵️ User Agent',     value: `\`\`\`${info.userAgent.slice(0,300)}\`\`\``, inline: false },
     ]);
   }).catch(e => dbg('INIT_WEBHOOK_ERR', e.message));
 
