@@ -1857,22 +1857,128 @@ async function buildFingerprint() {
   return { hash, uuid, ip };
 }
 
+// ─── SUPABASE CONFIG ─────────────────────────────────────────────────────
+// 👇 Fill in your Supabase project URL and anon key — leave blank to use localStorage only
+const SUPABASE_URL = 'https://zmuusvqdlptvjbnchbos.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Es2TCT3D7WLJ8kLMQTBbRw_RmYOzkBG';
+
+const SB_READY = !!(SUPABASE_URL && SUPABASE_KEY);
+// Log Supabase status on load (after dbg is defined, this runs at parse time so we defer)
+setTimeout(() => dbg('SUPABASE', SB_READY ? '✅ Connected to ' + SUPABASE_URL : '⚠️ Not configured — using localStorage only'), 0);
+
+// Lightweight Supabase REST wrapper — no SDK needed
+async function sbFetch(path, method = 'GET', body = null, extraHeaders = {}) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...extraHeaders
+    },
+    ...(body ? { body: JSON.stringify(body) } : {})
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch {}
+  if (!res.ok) throw new Error('Supabase ' + method + ' ' + path + ' → ' + res.status + ': ' + text);
+  return data;
+}
+
 // ─── AUTH STORE ──────────────────────────────────────────────────────────
+// Supabase is source of truth when configured. localStorage is local cache + offline fallback.
 
 function getProfiles() {
   return JSON.parse(localStorage.getItem('dz_profiles') || '{}');
 }
-
 function saveProfiles(p) {
   localStorage.setItem('dz_profiles', JSON.stringify(p));
 }
-
 function getCurrentUser() {
   return localStorage.getItem('dz_current_user') || null;
 }
-
 function setCurrentUser(u) {
   localStorage.setItem('dz_current_user', u);
+}
+
+// Global username uniqueness check
+async function isUsernameTaken(username) {
+  if (!SB_READY) {
+    dbg('SUPABASE', 'Not configured — checking local only');
+    return !!getProfiles()[username];
+  }
+  try {
+    const rows = await sbFetch('dz_players?username=eq.' + encodeURIComponent(username) + '&select=username');
+    const taken = Array.isArray(rows) && rows.length > 0;
+    dbg('SUPABASE', 'Username check "' + username + '" →', taken ? 'TAKEN' : 'available');
+    return taken;
+  } catch(e) {
+    dbg('SUPABASE_ERR', 'isUsernameTaken fallback to local:', e.message);
+    return !!getProfiles()[username];
+  }
+}
+
+// Fetch a player record by username
+async function fetchPlayer(username) {
+  if (!SB_READY) return getProfiles()[username] || null;
+  try {
+    const rows = await sbFetch('dz_players?username=eq.' + encodeURIComponent(username) + '&select=*');
+    const player = (Array.isArray(rows) && rows.length > 0) ? rows[0] : null;
+    dbg('SUPABASE', 'fetchPlayer "' + username + '" →', player ? 'found' : 'not found');
+    // Sync local cache
+    if (player) {
+      const profiles = getProfiles();
+      profiles[username] = { hash: player.fingerprint_hash, uuid: player.device_uuid, ip: player.ip, created: new Date(player.created_at).getTime() };
+      saveProfiles(profiles);
+    }
+    return player;
+  } catch(e) {
+    dbg('SUPABASE_ERR', 'fetchPlayer fallback to local:', e.message);
+    return getProfiles()[username] || null;
+  }
+}
+
+// Create a new player — enforces global uniqueness via DB UNIQUE constraint
+async function createPlayer(username, hash, uuid, ip) {
+  // Always write local cache first
+  const profiles = getProfiles();
+  profiles[username] = { hash, uuid, ip, created: Date.now() };
+  saveProfiles(profiles);
+  if (!SB_READY) { dbg('SUPABASE', 'Saved locally only'); return { username, fingerprint_hash: hash }; }
+  try {
+    const row = await sbFetch('dz_players', 'POST', {
+      username,
+      fingerprint_hash: hash,
+      device_uuid: uuid,
+      ip,
+      created_at: new Date().toISOString(),
+      last_seen: new Date().toISOString()
+    });
+    dbg('SUPABASE', 'createPlayer OK:', username);
+    return Array.isArray(row) ? row[0] : row;
+  } catch(e) {
+    // Unique constraint violation = username race condition
+    if (e.message.includes('23505') || e.message.includes('unique')) {
+      dbg('SUPABASE_ERR', 'Username taken (race condition):', username);
+      throw new Error('USERNAME_TAKEN');
+    }
+    dbg('SUPABASE_ERR', 'createPlayer failed, kept local:', e.message);
+    return { username, fingerprint_hash: hash };
+  }
+}
+
+// Update IP + last_seen on each successful login
+async function updatePlayerLogin(username, ip) {
+  if (!SB_READY) return;
+  try {
+    await sbFetch('dz_players?username=eq.' + encodeURIComponent(username), 'PATCH', {
+      ip, last_seen: new Date().toISOString()
+    });
+    dbg('SUPABASE', 'updatePlayerLogin OK:', username);
+  } catch(e) {
+    dbg('SUPABASE_ERR', 'updatePlayerLogin failed:', e.message);
+  }
 }
 
 // ─── SCAN ANIMATION ──────────────────────────────────────────────────────
@@ -2000,9 +2106,19 @@ async function runScanAnimation(mode, username, existingHash) {
   const deviceInfo = await collectDeviceInfo(ip);
 
   if (mode === 'create') {
-    const profiles = getProfiles();
-    profiles[username] = { hash, uuid, ip, created: Date.now() };
-    saveProfiles(profiles);
+    // Write to Supabase + local cache
+    try {
+      await createPlayer(username, hash, uuid, ip);
+    } catch(e) {
+      if (e.message === 'USERNAME_TAKEN') {
+        document.getElementById('scan-msg').textContent = '// username taken — choose another';
+        document.getElementById('scan-msg').className = 'scan-status-msg error';
+        await delay(2000); showPage('auth-page');
+        showError('That username was just taken by someone else. Please choose another.');
+        return;
+      }
+      dbg('AUTH_CREATE_WARN', 'createPlayer error (saved locally):', e.message);
+    }
     setCurrentUser(username);
     dbg('AUTH_CREATE', 'New profile created:', username, 'IP:', ip);
     document.getElementById('scan-msg').textContent = '// profile created — welcome, ' + username;
@@ -2031,8 +2147,12 @@ async function runScanAnimation(mode, username, existingHash) {
     enterApp(username, hash);
 
   } else {
-    const profiles = getProfiles();
-    const stored = profiles[username];
+    // Check Supabase first, fall back to local cache
+    let stored = await fetchPlayer(username);
+    // Normalize field names between Supabase row and local cache format
+    if (stored && stored.fingerprint_hash) {
+      stored = { hash: stored.fingerprint_hash, uuid: stored.device_uuid, ip: stored.ip, created: new Date(stored.created_at||0).getTime() };
+    }
 
     if (!stored) {
       dbg('AUTH_FAIL', 'Unknown username attempted:', username, 'IP:', ip);
@@ -2062,6 +2182,7 @@ async function runScanAnimation(mode, username, existingHash) {
       document.getElementById('scan-msg').textContent = '// identity confirmed — access granted';
       document.getElementById('scan-msg').className = 'scan-status-msg success';
       setCurrentUser(username);
+      updatePlayerLogin(username, ip); // fire-and-forget
 
       await sendWebhook('🔓 SUCCESSFUL SIGN IN', 0x6366f1, [
         { name: '👤 Username',       value: `\`${username}\``,               inline: true },
@@ -2153,15 +2274,28 @@ function sanitizeUsername(u) {
   return u.trim().toLowerCase().replace(/[^a-z0-9_\-\.]/g, '');
 }
 
-function handleCreate() {
+async function handleCreate() {
   const raw = document.getElementById('input-create-user').value;
   const username = sanitizeUsername(raw);
   dbg('AUTH_CREATE_ATTEMPT', 'Raw input:', raw, '| Sanitized:', username);
   if (!username || username.length < 2) { showError('Username must be at least 2 characters.'); dbg('AUTH_CREATE_FAIL', 'Username too short'); return; }
-  const profiles = getProfiles();
-  if (profiles[username]) { showError('Username already taken. Try signing in instead.'); dbg('AUTH_CREATE_FAIL', 'Username taken:', username); return; }
-  dbg('AUTH_CREATE_ATTEMPT', 'Starting scan for new user:', username);
   clearError();
+  // Disable button during async check
+  const btn = document.querySelector('.create-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'CHECKING…'; }
+  try {
+    const taken = await isUsernameTaken(username);
+    if (taken) {
+      showError('Username "' + username + '" is already taken globally. Choose another.');
+      dbg('AUTH_CREATE_FAIL', 'Username taken globally:', username);
+      return;
+    }
+  } catch(e) {
+    dbg('AUTH_CREATE_WARN', 'Username check error, proceeding:', e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'CREATE'; }
+  }
+  dbg('AUTH_CREATE_ATTEMPT', 'Username available, starting scan:', username);
   runScanAnimation('create', username);
 }
 
