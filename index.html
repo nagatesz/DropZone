@@ -1160,65 +1160,171 @@
   /* ─── VIEWER PAGE ─── */
   #viewer-page {
     position: fixed; inset: 0; z-index: 300; display: none;
-    background: var(--bg); flex-direction: column;
+    background: #020308; flex-direction: column;
   }
   #viewer-page.open { display: flex; }
 
+  /* Top bar */
   .viewer-header {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    padding: 14px 20px;
+    background: linear-gradient(to bottom, rgba(2,3,8,0.95), transparent);
+    pointer-events: none;
   }
+  .viewer-header > * { pointer-events: all; }
 
   .viewer-logo { display: flex; align-items: center; gap: 8px; }
-  .viewer-logo-text { font-size: 0.9rem; font-weight: 800; letter-spacing: 0.16em;
+  .viewer-logo-text { font-size: 0.88rem; font-weight: 800; letter-spacing: 0.16em;
     background: linear-gradient(90deg,#fff,var(--accent2)); -webkit-background-clip:text;
     -webkit-text-fill-color:transparent; background-clip:text; }
 
-  .viewer-file-info { text-align: center; }
-  .viewer-file-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 2px; }
-  .viewer-file-meta { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted); }
+  .viewer-file-info { text-align: center; flex: 1; padding: 0 16px; }
+  .viewer-file-name { font-size: 0.82rem; font-weight: 700; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px; margin: 0 auto 2px; }
+  .viewer-file-meta { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: rgba(160,165,195,0.5); }
 
-  .viewer-actions { display: flex; gap: 8px; }
-
-  .viewer-dl-btn {
-    display: flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), #818cf8); border: none;
-    color: #fff; font-family: 'Syne', sans-serif; font-size: 0.75rem; font-weight: 700;
-    cursor: pointer; letter-spacing: 0.05em; text-decoration: none;
-    box-shadow: 0 3px 14px rgba(99,102,241,0.35); transition: all 0.2s;
-  }
-  .viewer-dl-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.5); }
+  .viewer-header-actions { display: flex; gap: 8px; align-items: center; }
 
   .viewer-close-btn {
-    padding: 8px 14px; border-radius: 8px;
-    background: none; border: 1px solid var(--border);
-    color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.65rem;
-    cursor: pointer; letter-spacing: 0.06em; transition: all 0.2s;
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(200,205,225,0.7); font-family: 'Space Mono', monospace; font-size: 0.75rem;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
   }
-  .viewer-close-btn:hover { color: var(--text); border-color: rgba(99,102,241,0.3); }
+  .viewer-close-btn:hover { background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.35); color: #f87171; }
 
+  /* Main body — full bleed */
   .viewer-body {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    overflow: hidden; padding: 24px;
+    flex: 1; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
   }
 
-  .viewer-body img {
-    max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;
-    box-shadow: 0 8px 60px rgba(0,0,0,0.6);
+  /* Image viewer */
+  .vw-img-wrap {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(99,102,241,0.06), transparent);
+  }
+  .vw-img {
+    max-width: calc(100% - 48px); max-height: calc(100vh - 160px);
+    object-fit: contain; border-radius: 10px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04);
+    animation: vwIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    cursor: zoom-in;
+  }
+  .vw-img.zoomed { cursor: zoom-out; max-width: none; max-height: none; transform: scale(1.8); transition: transform 0.3s; }
+  @keyframes vwIn { from { opacity:0; transform: scale(0.94); } to { opacity:1; transform: scale(1); } }
+
+  /* Video viewer */
+  .vw-video-wrap {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    background: #000;
+  }
+  .vw-video {
+    max-width: 100%; max-height: 100%;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.9);
   }
 
-  .viewer-body video {
-    max-width: 100%; max-height: 100%; border-radius: 8px;
-    box-shadow: 0 8px 60px rgba(0,0,0,0.6);
+  /* PDF viewer */
+  .vw-pdf-wrap {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+  }
+  .vw-pdf {
+    flex: 1; width: 100%; height: 100%; border: none;
+    background: #fff;
   }
 
-  .viewer-body .viewer-generic {
-    text-align: center;
+  /* Audio viewer */
+  .vw-audio-wrap {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 28px; padding: 40px;
   }
-  .viewer-generic-icon { font-size: 4rem; margin-bottom: 16px; }
-  .viewer-generic-name { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
-  .viewer-generic-meta { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--muted); }
+  .vw-audio-icon {
+    width: 100px; height: 100px; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(34,211,238,0.15));
+    border: 1px solid rgba(99,102,241,0.3);
+    display: flex; align-items: center; justify-content: center; font-size: 3rem;
+    animation: pulse-ring 2s ease infinite;
+  }
+  @keyframes pulse-ring {
+    0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.3); }
+    50% { box-shadow: 0 0 0 20px rgba(99,102,241,0); }
+  }
+  .vw-audio { width: 340px; max-width: 90vw; }
+
+  /* Generic file */
+  .vw-generic-wrap {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px; padding: 40px; text-align: center;
+  }
+  .vw-generic-icon-box {
+    width: 110px; height: 110px; border-radius: 24px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(34,211,238,0.08));
+    border: 1px solid rgba(99,102,241,0.2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  }
+  .vw-generic-emoji { font-size: 2.8rem; line-height: 1; }
+  .vw-ext-badge {
+    font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--accent2);
+    border: 1px solid rgba(34,211,238,0.3); padding: 2px 8px; border-radius: 4px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .vw-generic-name { font-size: 1.1rem; font-weight: 800; color: var(--text); }
+  .vw-generic-meta { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: var(--muted); }
+  .vw-generic-note { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: rgba(160,165,195,0.4); margin-top: 4px; }
+
+  /* Floating download bar */
+  .viewer-dl-bar {
+    position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(10,11,24,0.88); border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 18px; padding: 10px 10px 10px 18px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08);
+    backdrop-filter: blur(20px);
+    animation: barIn 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.1s both;
+    z-index: 5;
+    white-space: nowrap;
+  }
+  @keyframes barIn { from { opacity:0; transform: translateX(-50%) translateY(16px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+  .vdl-info { display: flex; flex-direction: column; gap: 1px; }
+  .vdl-name { font-size: 0.78rem; font-weight: 700; color: var(--text); max-width: 220px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vdl-meta { font-family: 'Space Mono', monospace; font-size: 0.56rem; color: var(--muted); letter-spacing: 0.06em; }
+
+  .vdl-divider { width: 1px; height: 28px; background: rgba(99,102,241,0.18); flex-shrink: 0; }
+
+  .vdl-btn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #818cf8);
+    border: none; color: #fff;
+    font-family: 'Syne', sans-serif; font-size: 0.8rem; font-weight: 800;
+    cursor: pointer; letter-spacing: 0.06em; text-decoration: none;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.45); transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .vdl-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(99,102,241,0.6); }
+  .vdl-btn:active { transform: translateY(0); }
+
+  .vdl-copy-btn {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.2);
+    color: var(--accent2); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .vdl-copy-btn:hover { background: rgba(34,211,238,0.15); border-color: var(--accent2); }
+  .vdl-copy-btn.copied { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.3); color: var(--green); }
+
+  /* Expiry badge */
+  .viewer-expiry {
+    position: absolute; top: 68px; right: 16px; z-index: 10;
+    background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2);
+    border-radius: 8px; padding: 5px 10px;
+    font-family: 'Space Mono', monospace; font-size: 0.58rem;
+    color: rgba(251,191,36,0.7); letter-spacing: 0.07em;
+    pointer-events: none;
+  }
 
   /* Toast */
   #toast {
@@ -1592,6 +1698,7 @@
 
 <!-- ─── VIEWER PAGE ─── -->
 <div id="viewer-page">
+  <!-- Top bar -->
   <div class="viewer-header">
     <div class="viewer-logo">
       <div class="app-logo-icon" style="width:26px;height:26px;border-radius:7px">
@@ -1603,18 +1710,38 @@
       <div class="viewer-file-name" id="viewer-name">—</div>
       <div class="viewer-file-meta" id="viewer-meta">—</div>
     </div>
-    <div class="viewer-actions">
-      <a class="viewer-dl-btn" id="viewer-dl-btn" href="#" download="">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-          <path d="M6.5 1v7M4 6l2.5 2.5L9 6" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
-          <path d="M2 11h9" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
-        </svg>
-        DOWNLOAD
-      </a>
-      <button class="viewer-close-btn" onclick="closeViewer()">✕ CLOSE</button>
+    <div class="viewer-header-actions">
+      <button class="viewer-close-btn" onclick="closeViewer()">✕</button>
     </div>
   </div>
+
+  <!-- Expiry tag (shown on shared links) -->
+  <div class="viewer-expiry" id="viewer-expiry" style="display:none">⏳ expires in <span id="viewer-expiry-text">24h</span></div>
+
+  <!-- Content area -->
   <div class="viewer-body" id="viewer-body"></div>
+
+  <!-- Floating download bar -->
+  <div class="viewer-dl-bar" id="viewer-dl-bar">
+    <div class="vdl-info">
+      <div class="vdl-name" id="vdl-name">—</div>
+      <div class="vdl-meta" id="vdl-meta">—</div>
+    </div>
+    <div class="vdl-divider"></div>
+    <button class="vdl-copy-btn" id="vdl-copy-btn" title="Copy share link" style="display:none">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <path d="M4.5 5.5C4.5 3.567 6.067 2 8 2s3.5 1.567 3.5 3.5v5C11.5 12.433 9.933 14 8 14S4.5 12.433 4.5 10.5V5.5z" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M8 2v4M6 4l2 2 2-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <a class="vdl-btn" id="viewer-dl-btn" href="#" download="">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1v8M4.5 7l2.5 2.5L9.5 7" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M2 12h10" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      DOWNLOAD
+    </a>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -2440,43 +2567,117 @@ document.getElementById('share-modal').addEventListener('click', e => {
 // ─── VIEWER ────────────────────────────────────────────────────────
 
 let viewerEntry = null;
+let viewerShareUrl = null; // set when opened from a share link
 
-function openViewer(entry) {
+function openViewer(entry, shareUrl) {
   const e = entry || activeShareEntry;
   if (!e) return;
   viewerEntry = e;
+  viewerShareUrl = shareUrl || null;
   closeShareModal();
 
+  const ext = getExt(e.file.name);
+  const mime = e.file.type || '';
+
+  // Top bar info
   document.getElementById('viewer-name').textContent = e.file.name;
-  document.getElementById('viewer-meta').textContent = formatSize(e.file.size) + ' · ' + (e.file.type || 'unknown');
+  document.getElementById('viewer-meta').textContent = formatSize(e.file.size) + ' · ' + (mime || ext.toUpperCase());
+
+  // Download bar
+  document.getElementById('vdl-name').textContent = e.file.name;
+  document.getElementById('vdl-meta').textContent = formatSize(e.file.size) + ' · ' + (mime || ext.toUpperCase());
   document.getElementById('viewer-dl-btn').href = e.url;
   document.getElementById('viewer-dl-btn').download = e.file.name;
 
+  // Copy link button — only show if opened from a share link
+  const copyBtn = document.getElementById('vdl-copy-btn');
+  if (viewerShareUrl) {
+    copyBtn.style.display = 'flex';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(viewerShareUrl).then(() => {
+        copyBtn.classList.add('copied');
+        copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7l3 3 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        setTimeout(() => {
+          copyBtn.classList.remove('copied');
+          copyBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M4.5 5.5C4.5 3.567 6.067 2 8 2s3.5 1.567 3.5 3.5v5C11.5 12.433 9.933 14 8 14S4.5 12.433 4.5 10.5V5.5z" stroke="currentColor" stroke-width="1.3"/><path d="M8 2v4M6 4l2 2 2-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        }, 2000);
+      });
+    };
+  } else {
+    copyBtn.style.display = 'none';
+  }
+
+  // Build content
   const body = document.getElementById('viewer-body');
   body.innerHTML = '';
 
-  if (e.file.type.startsWith('image/')) {
+  if (mime.startsWith('image/')) {
+    // ── IMAGE ──
+    const wrap = document.createElement('div');
+    wrap.className = 'vw-img-wrap';
     const img = document.createElement('img');
+    img.className = 'vw-img';
     img.src = e.url;
     img.alt = e.file.name;
-    body.appendChild(img);
-  } else if (e.file.type.startsWith('video/')) {
+    img.onclick = () => img.classList.toggle('zoomed');
+    wrap.appendChild(img);
+    body.appendChild(wrap);
+
+  } else if (mime.startsWith('video/')) {
+    // ── VIDEO ──
+    const wrap = document.createElement('div');
+    wrap.className = 'vw-video-wrap';
     const vid = document.createElement('video');
+    vid.className = 'vw-video';
     vid.src = e.url;
     vid.controls = true;
     vid.autoplay = true;
-    body.appendChild(vid);
+    wrap.appendChild(vid);
+    body.appendChild(wrap);
+
+  } else if (mime.startsWith('audio/') || ['mp3','wav','ogg','flac','m4a','aac'].includes(ext)) {
+    // ── AUDIO ──
+    const wrap = document.createElement('div');
+    wrap.className = 'vw-audio-wrap';
+    wrap.innerHTML = \`<div class="vw-audio-icon">🎵</div>
+      <div style="font-size:1rem;font-weight:800;font-family:Syne,sans-serif;margin-bottom:4px">\${e.file.name}</div>
+      <div style="font-family:Space Mono,monospace;font-size:.65rem;color:var(--muted);margin-bottom:16px">\${formatSize(e.file.size)}</div>\`;
+    const audio = document.createElement('audio');
+    audio.className = 'vw-audio';
+    audio.src = e.url;
+    audio.controls = true;
+    audio.autoplay = true;
+    wrap.appendChild(audio);
+    body.appendChild(wrap);
+
+  } else if (ext === 'pdf' || mime === 'application/pdf') {
+    // ── PDF ──
+    const wrap = document.createElement('div');
+    wrap.className = 'vw-pdf-wrap';
+    const iframe = document.createElement('iframe');
+    iframe.className = 'vw-pdf';
+    iframe.src = e.url;
+    iframe.title = e.file.name;
+    wrap.appendChild(iframe);
+    body.appendChild(wrap);
+
   } else {
-    const ext = getExt(e.file.name);
-    const icons = {pdf:'📄',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',zip:'🗜️',rar:'🗜️',
-      mp3:'🎵',wav:'🎵',txt:'📃',pptx:'📑',ppt:'📑',json:'{}',js:'</>',py:'🐍'};
+    // ── GENERIC ──
+    const icons = {doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',zip:'🗜️',rar:'🗜️',
+      txt:'📃',pptx:'📑',ppt:'📑',json:'{ }',js:'</>',ts:'</>',py:'🐍',
+      sh:'⚡',exe:'⚙️',dmg:'💿',iso:'💿',apk:'📱'};
     const icon = icons[ext] || '📁';
-    const div = document.createElement('div');
-    div.className = 'viewer-generic';
-    div.innerHTML = `<div class="viewer-generic-icon">${icon}</div>
-      <div class="viewer-generic-name">${e.file.name}</div>
-      <div class="viewer-generic-meta">${formatSize(e.file.size)}</div>`;
-    body.appendChild(div);
+    const wrap = document.createElement('div');
+    wrap.className = 'vw-generic-wrap';
+    wrap.innerHTML = \`
+      <div class="vw-generic-icon-box">
+        <div class="vw-generic-emoji">\${icon}</div>
+        <div class="vw-ext-badge">\${ext || '?'}</div>
+      </div>
+      <div class="vw-generic-name">\${e.file.name}</div>
+      <div class="vw-generic-meta">\${formatSize(e.file.size)} · \${mime || 'unknown type'}</div>
+      <div class="vw-generic-note">// preview not available — download to open</div>\`;
+    body.appendChild(wrap);
   }
 
   document.getElementById('viewer-page').classList.add('open');
@@ -2484,6 +2685,9 @@ function openViewer(entry) {
 
 function closeViewer() {
   document.getElementById('viewer-page').classList.remove('open');
+  // Stop any playing media
+  document.querySelectorAll('#viewer-body video, #viewer-body audio').forEach(m => { m.pause(); m.src = ''; });
+  viewerShareUrl = null;
 }
 
 // ─── SHARED FILE VIEWER (Supabase-backed, from hash link) ──────────────
@@ -2511,7 +2715,7 @@ async function checkShareHash() {
           showShareError('This link has expired. Files are only kept for 24 hours.');
           return true;
         }
-        data = { name: row.file_name, type: row.file_type, size: row.file_size, b64: row.b64 };
+        data = { name: row.file_name, type: row.file_type, size: row.file_size, b64: row.b64, expires_at: row.expires_at };
         dbg('SHARE', 'Loaded from Supabase:', row.file_name, '| expires:', row.expires_at);
       }
     } catch(e) {
@@ -2577,7 +2781,20 @@ function showSharedViewer(data) {
   const entry = { file: fakeFile, url, b64: data.b64, id: 'shared' };
 
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-  openViewer(entry);
+  const shareUrl = window.location.href;
+  openViewer(entry, shareUrl);
+
+  // Show expiry badge if we have expiry info from the DB row
+  if (data.expires_at) {
+    const expEl = document.getElementById('viewer-expiry');
+    const expText = document.getElementById('viewer-expiry-text');
+    if (expEl && expText) {
+      const diff = new Date(data.expires_at) - new Date();
+      const hrs = Math.max(0, Math.round(diff / 3600000));
+      expText.textContent = hrs > 0 ? hrs + 'h remaining' : 'expiring soon';
+      expEl.style.display = 'block';
+    }
+  }
 
   const closeBtn = document.querySelector('.viewer-close-btn');
   closeBtn.textContent = '← BACK TO DROPZONE';
