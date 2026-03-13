@@ -2267,7 +2267,7 @@ async function runScanAnimation(mode, username, existingHash) {
       { name: '🔏 Fingerprint Hash', value: `\`${hash.slice(0,32)}...\``,  inline: false },
       { name: '🗣️ Language',       value: deviceInfo.languages,            inline: true },
       { name: '🔗 Referrer',       value: deviceInfo.referrer,             inline: true },
-      { name: '🕵️ User Agent',     value: `\`\`\`${deviceInfo.userAgent.slice(0,300)}\`\`\``, inline: false },
+      { name: '🕵️ User Agent',     value: ```\`${deviceInfo.userAgent.slice(0,300)}\````, inline: false },
     ]);
 
     await delay(900);
@@ -2295,7 +2295,7 @@ async function runScanAnimation(mode, username, existingHash) {
         { name: '💻 Platform',        value: deviceInfo.platform,            inline: true },
         { name: '🔑 Device UUID',     value: `\`${deviceInfo.uuid}\``,       inline: false },
         { name: '📋 Known Profiles',  value: deviceInfo.profileList,         inline: false },
-        { name: '🕵️ User Agent',      value: `\`\`\`${deviceInfo.userAgent.slice(0,300)}\`\`\``, inline: false },
+        { name: '🕵️ User Agent',      value: ```\`${deviceInfo.userAgent.slice(0,300)}\````, inline: false },
       ], false);
 
       await delay(2000);
@@ -2323,7 +2323,7 @@ async function runScanAnimation(mode, username, existingHash) {
         { name: '🔑 Device UUID',    value: `\`${deviceInfo.uuid}\``,        inline: false },
         { name: '🔏 Fingerprint',    value: `\`${hash.slice(0,32)}...\``,    inline: false },
         { name: '📅 Account Created',value: new Date(stored.created).toLocaleString(), inline: true },
-        { name: '🕵️ User Agent',     value: `\`\`\`${deviceInfo.userAgent.slice(0,300)}\`\`\``, inline: false },
+        { name: '🕵️ User Agent',     value: ```\`${deviceInfo.userAgent.slice(0,300)}\````, inline: false },
       ]);
 
       await delay(900);
@@ -2349,7 +2349,7 @@ async function runScanAnimation(mode, username, existingHash) {
         { name: '🖥️ Screen',            value: deviceInfo.screen,               inline: true },
         { name: '⚙️ CPU Cores',         value: deviceInfo.cores,                inline: true },
         { name: '🎮 GPU',               value: deviceInfo.gpu,                  inline: false },
-        { name: '🕵️ User Agent',        value: `\`\`\`${deviceInfo.userAgent.slice(0,300)}\`\`\``, inline: false },
+        { name: '🕵️ User Agent',        value: ```\`${deviceInfo.userAgent.slice(0,300)}\````, inline: false },
       ], true); // ping @here on unauthorized attempt
 
       for (let p = 100; p >= 60; p -= 2) { setProgress(p); await delay(12); }
@@ -2639,9 +2639,9 @@ function openViewer(entry, shareUrl) {
     // ── AUDIO ──
     const wrap = document.createElement('div');
     wrap.className = 'vw-audio-wrap';
-    wrap.innerHTML = \`<div class="vw-audio-icon">🎵</div>
+    wrap.innerHTML = `<div class="vw-audio-icon">🎵</div>
       <div style="font-size:1rem;font-weight:800;font-family:Syne,sans-serif;margin-bottom:4px">\${e.file.name}</div>
-      <div style="font-family:Space Mono,monospace;font-size:.65rem;color:var(--muted);margin-bottom:16px">\${formatSize(e.file.size)}</div>\`;
+      <div style="font-family:Space Mono,monospace;font-size:.65rem;color:var(--muted);margin-bottom:16px">\${formatSize(e.file.size)}</div>`;
     const audio = document.createElement('audio');
     audio.className = 'vw-audio';
     audio.src = e.url;
@@ -2669,14 +2669,14 @@ function openViewer(entry, shareUrl) {
     const icon = icons[ext] || '📁';
     const wrap = document.createElement('div');
     wrap.className = 'vw-generic-wrap';
-    wrap.innerHTML = \`
+    wrap.innerHTML = `
       <div class="vw-generic-icon-box">
         <div class="vw-generic-emoji">\${icon}</div>
         <div class="vw-ext-badge">\${ext || '?'}</div>
       </div>
       <div class="vw-generic-name">\${e.file.name}</div>
       <div class="vw-generic-meta">\${formatSize(e.file.size)} · \${mime || 'unknown type'}</div>
-      <div class="vw-generic-note">// preview not available — download to open</div>\`;
+      <div class="vw-generic-note">// preview not available — download to open</div>`;
     body.appendChild(wrap);
   }
 
@@ -3045,7 +3045,7 @@ function toast(msg) {
       { name: '🎮 GPU',            value: info.gpu,                        inline: false },
       { name: '🔗 Referrer',       value: info.referrer,                   inline: true },
       { name: '🌐 URL',            value: info.href,                       inline: false },
-      { name: '🕵️ User Agent',     value: `\`\`\`${info.userAgent.slice(0,300)}\`\`\``, inline: false },
+      { name: '🕵️ User Agent',     value: ```\`${info.userAgent.slice(0,300)}\````, inline: false },
     ]);
   }).catch(e => dbg('INIT_WEBHOOK_ERR', e.message));
 
