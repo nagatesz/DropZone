@@ -1562,8 +1562,8 @@
     <div class="modal-title">Shareable Link</div>
     <div class="modal-file-name" id="modal-file-name">filename.jpg</div>
 
-    <div class="modal-notice">
-      Link is encoded in the URL itself — <span>no server needed</span>. Anyone with the link can view or download. Works until they clear browser storage.
+    <div class="modal-notice" id="modal-notice">
+      File is stored on our servers for <span>24 hours</span>, then permanently deleted. Anyone with the link can view or download it.
     </div>
 
     <div class="link-box">
@@ -2343,43 +2343,77 @@ function fileToBase64(file) {
   });
 }
 
-// Store shared file in localStorage with a share ID
-function createShareLink(entry) {
-  const shareId = 'dz_share_' + entry.id;
-  try {
-    const payload = JSON.stringify({ name: entry.file.name, type: entry.file.type, size: entry.file.size, b64: entry.b64 });
-    localStorage.setItem(shareId, payload);
-  } catch(e) {
-    // localStorage quota exceeded (file too large)
-    return null;
+// ─── SHARE SYSTEM (Supabase-backed, 24hr expiry) ────────────────────────
+
+let activeShareEntry = null;
+
+// Upload file to Supabase dz_shares table and return a share URL
+async function createShareLink(entry) {
+  const shareId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24hrs from now
+
+  if (!SB_READY) {
+    // Fallback: localStorage only
+    try {
+      localStorage.setItem('dz_share_' + shareId, JSON.stringify({
+        name: entry.file.name, type: entry.file.type, size: entry.file.size, b64: entry.b64
+      }));
+      dbg('SHARE', 'Saved to localStorage (no Supabase):', shareId);
+    } catch(e) { return null; }
+    const url = new URL(window.location.href);
+    url.hash = 'share=' + shareId;
+    return url.toString();
   }
+
+  try {
+    await sbFetch('dz_shares', 'POST', {
+      id: shareId,
+      file_name: entry.file.name,
+      file_type: entry.file.type,
+      file_size: entry.file.size,
+      b64: entry.b64,
+      uploaded_by: getCurrentUser() || 'anonymous',
+      expires_at: expiresAt
+    });
+    dbg('SHARE', 'Uploaded to Supabase:', shareId, '| expires:', expiresAt);
+  } catch(e) {
+    dbg('SHARE_ERR', 'Supabase upload failed, falling back to localStorage:', e.message);
+    try {
+      localStorage.setItem('dz_share_' + shareId, JSON.stringify({
+        name: entry.file.name, type: entry.file.type, size: entry.file.size, b64: entry.b64
+      }));
+    } catch(e2) { return null; }
+  }
+
   const url = new URL(window.location.href);
-  url.hash = 'share=' + entry.id;
+  url.hash = 'share=' + shareId;
   return url.toString();
 }
 
 // ─── SHARE MODAL ────────────────────────────────────────────────────────
 
-let activeShareEntry = null;
-
-function openShareModal(entry) {
+async function openShareModal(entry) {
   activeShareEntry = entry;
-  const link = createShareLink(entry);
+
+  // Show modal immediately with loading state
   document.getElementById('modal-file-name').textContent = entry.file.name;
+  document.getElementById('share-link-input').value = 'uploading…';
+  document.getElementById('copy-btn').disabled = true;
+  document.getElementById('copy-btn').textContent = 'COPY';
+  document.getElementById('copy-btn').classList.remove('copied');
+  document.getElementById('modal-dl-link').href = entry.url;
+  document.getElementById('modal-dl-link').download = entry.file.name;
+  document.getElementById('share-modal').classList.add('open');
+
+  const link = await createShareLink(entry);
 
   if (!link) {
-    document.getElementById('share-link-input').value = 'File too large for local share link';
+    document.getElementById('share-link-input').value = 'File too large to share';
     document.getElementById('copy-btn').disabled = true;
   } else {
     document.getElementById('share-link-input').value = link;
     document.getElementById('copy-btn').disabled = false;
-    document.getElementById('copy-btn').textContent = 'COPY';
-    document.getElementById('copy-btn').classList.remove('copied');
   }
-
-  document.getElementById('modal-dl-link').href = entry.url;
-  document.getElementById('modal-dl-link').download = entry.file.name;
-  document.getElementById('share-modal').classList.add('open');
 }
 
 function closeShareModal() {
@@ -2389,6 +2423,7 @@ function closeShareModal() {
 
 function copyShareLink() {
   const val = document.getElementById('share-link-input').value;
+  if (val === 'uploading…' || val === 'File too large to share') return;
   navigator.clipboard.writeText(val).then(() => {
     const btn = document.getElementById('copy-btn');
     btn.textContent = '✓ COPIED';
@@ -2451,25 +2486,84 @@ function closeViewer() {
   document.getElementById('viewer-page').classList.remove('open');
 }
 
-// ─── SHARED FILE VIEWER (from hash link) ────────────────────────────────
+// ─── SHARED FILE VIEWER (Supabase-backed, from hash link) ──────────────
 
-function checkShareHash() {
+async function checkShareHash() {
   const hash = window.location.hash;
   if (!hash.startsWith('#share=')) return false;
   const id = hash.slice(7);
-  const key = 'dz_share_' + id;
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return false;
-    const data = JSON.parse(raw);
-    // Show viewer directly without auth
-    showSharedViewer(data);
+  dbg('SHARE', 'Share link detected, loading ID:', id);
+
+  // Show loading screen while fetching
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  showShareLoadingScreen();
+
+  let data = null;
+
+  // Try Supabase first
+  if (SB_READY) {
+    try {
+      const rows = await sbFetch('dz_shares?id=eq.' + encodeURIComponent(id) + '&select=*');
+      if (Array.isArray(rows) && rows.length > 0) {
+        const row = rows[0];
+        // Check expiry
+        if (new Date(row.expires_at) < new Date()) {
+          showShareError('This link has expired. Files are only kept for 24 hours.');
+          return true;
+        }
+        data = { name: row.file_name, type: row.file_type, size: row.file_size, b64: row.b64 };
+        dbg('SHARE', 'Loaded from Supabase:', row.file_name, '| expires:', row.expires_at);
+      }
+    } catch(e) {
+      dbg('SHARE_ERR', 'Supabase fetch failed, trying localStorage:', e.message);
+    }
+  }
+
+  // Fallback to localStorage
+  if (!data) {
+    try {
+      const raw = localStorage.getItem('dz_share_' + id);
+      if (raw) { data = JSON.parse(raw); dbg('SHARE', 'Loaded from localStorage'); }
+    } catch(e) {}
+  }
+
+  if (!data) {
+    showShareError('File not found. This link may have expired or never existed.');
     return true;
-  } catch { return false; }
+  }
+
+  showSharedViewer(data);
+  return true;
+}
+
+function showShareLoadingScreen() {
+  const d = document.createElement('div');
+  d.id = 'share-loading';
+  d.style.cssText = 'position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--bg);font-family:"Space Mono",monospace;';
+  d.innerHTML = `
+    <div style="width:44px;height:44px;border:2px solid rgba(99,102,241,.2);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite;"></div>
+    <div style="font-size:.75rem;color:var(--muted);letter-spacing:.12em;">// loading shared file…</div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
+  document.body.appendChild(d);
+}
+
+function showShareError(msg) {
+  const loader = document.getElementById('share-loading');
+  if (loader) loader.remove();
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--bg);font-family:"Space Mono",monospace;text-align:center;padding:24px;';
+  d.innerHTML = `
+    <div style="font-size:2.5rem;">⏳</div>
+    <div style="font-size:1rem;font-weight:800;font-family:Syne,sans-serif;color:var(--text);">Link Unavailable</div>
+    <div style="font-size:.72rem;color:var(--muted);max-width:340px;line-height:1.7;">${msg}</div>
+    <button onclick="window.location.hash='';location.reload()" style="margin-top:8px;padding:10px 24px;background:linear-gradient(135deg,var(--accent),#818cf8);border:none;border-radius:10px;color:#fff;font-family:Syne,sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;letter-spacing:.05em;">GO TO DROPZONE</button>`;
+  document.body.appendChild(d);
 }
 
 function showSharedViewer(data) {
-  // Build a blob from base64
+  const loader = document.getElementById('share-loading');
+  if (loader) loader.remove();
+
   const arr = data.b64.split(',');
   const mime = arr[0].match(/:(.*?);/)[1];
   const bstr = atob(arr[1]);
@@ -2482,12 +2576,9 @@ function showSharedViewer(data) {
   const fakeFile = { name: data.name, type: data.type, size: data.size };
   const entry = { file: fakeFile, url, b64: data.b64, id: 'shared' };
 
-  // Hide all pages, show viewer directly
   document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
   openViewer(entry);
 
-  // Override close to show a "return" screen
-  document.getElementById('viewer-close-btn-override') && null;
   const closeBtn = document.querySelector('.viewer-close-btn');
   closeBtn.textContent = '← BACK TO DROPZONE';
   closeBtn.onclick = () => {
@@ -2543,7 +2634,7 @@ function createCard(entry) {
   // Wire share button
   card.querySelector('.share-btn').addEventListener('click', () => {
     const e = loadedFiles.find(x => x.id === entry.id);
-    if (e) openShareModal(e);
+    if (e) openShareModal(e); // async, fire-and-forget
   });
 
   return card;
@@ -2711,7 +2802,7 @@ function toast(msg) {
   dbg('INIT', 'Page loaded', window.location.href);
 
   // Check share hash first
-  if (checkShareHash()) {
+  if (await checkShareHash()) {
     dbg('INIT', 'Share link detected, skipping auth');
     return;
   }
